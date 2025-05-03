@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video with clickable markers</title>
+    <style>
+        #video-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        video {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            bottom: 10px; /* Keeps the markers at the bottom */
+        }
+
+        .tooltip {
+            display: none;
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 12px;
+            bottom: 30px;
+            white-space: nowrap;
+        }
+
+        .marker:hover + .tooltip {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div id="video-container">
+    <video id="video" controls>
+        <source src="" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+</div>
+
+<!-- Add a form to upload videos -->
+<form id="uploadForm" enctype="multipart/form-data">
+    <input type="file" name="file" id="fileInput">
+    <button type="submit">Upload Video</button>
+</form>
+
+<!-- Section to display the download link -->
+<div id="downloadLinkContainer" style="display: none;">
+    <a id="downloadLink" href="" download>Download Video</a>
+</div>
+
+<script>
+    const video = document.getElementById("video");
+    const uploadForm = document.getElementById("uploadForm");
+    const downloadLinkContainer = document.getElementById("downloadLinkContainer");
+    const downloadLink = document.getElementById("downloadLink");
+
+    uploadForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+
+        const formData = new FormData();
+        const fileInput = document.getElementById("fileInput");
+        formData.append("file", fileInput.files[0]);
+
+        fetch('http://127.0.0.1:5000/upload', {
+        method: 'POST',
+        body: formData,
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Upload Response:", data);  // Log the server response
+
+            if (data.video_url) {
+                // Set the video source
+                video.src = data.video_url;
+
+                // Show the download link
+                downloadLink.href = data.download_url;
+                downloadLinkContainer.style.display = "block";
+
+                // Wait for the video to load and then generate markers for each timestamp
+                video.onloadeddata = () => {
+                    const videoDuration = video.duration;  // Get the video's total duration
+
+                    console.log("Video Duration:", videoDuration); // Log the video duration to debug
+
+                    // Generate markers for each timestamp
+                    data.time_stamps.forEach(time => {
+                        const marker = document.createElement('div');
+                        marker.classList.add('marker');
+
+                        // Calculate the marker's position based on the timestamp relative to the video duration
+                        const position = (time / videoDuration) * 100;  // Percentage of the video's total duration
+
+                        console.log("Timestamp:", time, "Position:", position); // Debug log to ensure correct position
+
+                        marker.style.left = `${position}%`;  // Set the marker position
+
+                        marker.setAttribute("data-time", time);
+
+                        const tooltip = document.createElement('div');
+                        tooltip.classList.add('tooltip');
+                        tooltip.innerHTML = `Check this out: <a href="https://www.amazon.com/Start-Why-Leaders-Inspire-Everyone/dp/1591846447" target="_blank">Amazon Link</a>`;
+
+                        marker.appendChild(tooltip);
+                        document.getElementById("video-container").appendChild(marker);
+
+                        // Add event listener to markers
+                        marker.addEventListener("click", () => {
+                            video.currentTime = time;  // Jump to the specified time
+                            window.open(tooltip.querySelector('a').href, "_blank");
+                        });
+                    });
+                };
+            } else {
+                alert("Error uploading video");
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    });
+</script>
+
+</body>
+</html>
